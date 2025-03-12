@@ -1,6 +1,6 @@
-using FloquetEngineeringToricCode
-using Test
+using Test, FloquetEngineeringToricCode
 
-@testset "FloquetEngineeringToricCode.jl" begin
-    # Write your tests here.
-end
+include("topology.jl")
+include("main.jl")
+include("main_2.jl")
+
