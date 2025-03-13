@@ -34,3 +34,4 @@ observable = PauliSum([
 ])
 #PauliPropagation
 pauli_sum = propagate(circuit,observable,my_drive)
+overlapwithzero(pauli_sum)

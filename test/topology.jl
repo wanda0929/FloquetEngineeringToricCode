@@ -45,3 +45,18 @@ end
     @test length(circuit) == 800
 end
 
+@testset "Circuitwithyao" begin
+    nx = 2      
+    ny = 2
+    nq = nx * ny
+    step = 100
+    nlayers = step
+    t = 1.0
+    Omega_1 = 1.0
+    Omega_4 = 1.0
+    topology = periodic_square_lattice(nx, ny)
+    coupling_strength = ones(length(topology))
+    circuit = circuitwithyao(t, nq, nlayers, Omega_1, Omega_4, coupling_strength, topology)
+    expected_length = nlayers * (length(topology) + 2)
+    @test length(circuit) == expected_length
+end

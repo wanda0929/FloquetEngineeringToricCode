@@ -32,3 +32,21 @@ function trotterization_circuit(nq::Int, nlayers::Int; topology::Vector{Tuple{In
     return circuit
 end
 
+function circuitwithyao(t::Float64, nq::Int, nlayers::Int, Omega_1::Float64, Omega_4::Float64, coupling_strength::Vector{Float64}, topology::Vector{Tuple{Int,Int}})
+    circuit = Yao.AbstractBlock[]
+    dt = t/nlayers
+    for i in 1:nlayers
+       
+        for (j, pair) in enumerate(topology)
+            J = coupling_strength[j]
+            H = J * (kron(X, X) + kron(Y, Y))
+            push!(circuit, put(nq, pair => TimeEvolution(matblock(H), dt)))
+        end
+        push!(circuit, put(nq, 2 => TimeEvolution(matblock(Omega_1 * X), dt)))
+        push!(circuit, put(nq, 3 => TimeEvolution(matblock(Omega_4 * X), dt)))
+    end
+    return circuit
+end
+
+
+
