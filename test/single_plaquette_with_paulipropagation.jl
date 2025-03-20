@@ -4,7 +4,7 @@ using PauliPropagation
 nx = 2      
 ny = 2
 nq = nx * ny
-function paulical(nq::Int)
+#function paulical(nq::Int)
 #trotterization去逼近含时的调制波形，定义电路layers
 step = 100
 nlayers = step
@@ -31,10 +31,10 @@ my_drive = vcat([[my_drive[idx],my_drive[idx],my_drive_2[idx],my_drive_2[idx],my
 #定义observable
 observable = PauliString(nq, :Z, 2)
 #PauliPropagation
-pauli_sum = propagate(circuit,observable,2*my_drive)
+pauli_sum = propagate(circuit,observable,my_drive)
 final = overlapwithzero(pauli_sum)
-return final
-end
+#return final
+#end
 final
 
 
