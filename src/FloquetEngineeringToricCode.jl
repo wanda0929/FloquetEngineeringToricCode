@@ -16,6 +16,7 @@ export periodic_square_lattice
 export floquet_drive
 export trotterization_circuit
 export circuitwithyao
+export get_final
 
 
 

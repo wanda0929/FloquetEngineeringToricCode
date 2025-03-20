@@ -60,3 +60,19 @@ end
     expected_length = nlayers * (length(topology) + 2)
     @test length(circuit) == expected_length
 end
+
+@testset "Getfinal" begin
+    nx = 2      
+    ny = 2
+    nq = nx * ny
+    step = 100
+    nlayers = step
+    t = 1.0
+    Omega_1 = 1.0
+    Omega_4 = 1.0
+    topology = periodic_square_lattice(nx, ny)
+    initial_amplitudes = zeros(Complex{Float64}, 2^nq)
+    initial_amplitudes[0b0000 + 1] = 1.0
+    state = ArrayReg(initial_amplitudes)
+    get_final(t, nq, nlayers, Omega_1, Omega_4, 1.0, 2*π, 0.0, topology, state)
+end
