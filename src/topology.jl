@@ -14,53 +14,41 @@ function periodic_square_lattice(nx::Int, ny::Int;xshift::Int=0,yshift::Int=0)
     end
     return unique(topology)
 end
-#定义周期性的驱动函数g_ij(t)
-function floquet_drive(t::Float64, amplitude::Float64, omega::Float64, phase=0.0)
-    return amplitude * cos(omega * t + phase)
-end
 
-#定义trotterization circuit with n layers
-function trotterization_circuit(nq::Int, nlayers::Int; topology::Vector{Tuple{Int,Int}})
-    circuit::Vector{Gate} = []
-    for i in 1:nlayers
-        for cur_topo in topology
-            push!(circuit, PauliRotation([:X, :X], cur_topo))
-            push!(circuit, PauliRotation([:Y, :Y], cur_topo))
-        end
-        push!(circuit, PauliRotation(:X, 2))
-        push!(circuit, PauliRotation(:X, 3))
-    end
-    return circuit
-end
 #定义用Yao.jl构建的电路
-function circuitwithyao(t::Float64, nq::Int, nlayers::Int, Omega_1::Float64, Omega_4::Float64, coupling_strength::Vector{Float64}, topology::Vector{Tuple{Int,Int}})
-    circuit = Yao.AbstractBlock[]
-    dt = t/nlayers
+#function circuitwithyao(dt::Float64, nq::Int, Omega_1::Float64, Omega_4::Float64, coupling_strength::Vector{Float64}, topology::Vector{Tuple{Int,Int}})
+#    circuit = Yao.AbstractBlock[]
+    #dt = t/nlayers
     #for i in 1:nlayers
        
-        for (j, pair) in enumerate(topology)
-            J = coupling_strength[j]
-            H = J * (kron(X, X) + kron(Y, Y))
-            push!(circuit, put(nq, pair => TimeEvolution(matblock(H), dt/5)))
-        end
-        push!(circuit, put(nq, 2 => TimeEvolution(matblock(Omega_1 * X), dt/5)))
-        push!(circuit, put(nq, 3 => TimeEvolution(matblock(Omega_4 * X), dt/5)))
+#        for (j, pair) in enumerate(topology)
+#           J = coupling_strength[j]
+#            H_1 = J * kron(X, X)
+#            H_2 = J * kron(Y, Y)
+#            push!(circuit, put(nq, pair => TimeEvolution(matblock(H_1), dt)))
+#            push!(circuit, put(nq, pair => TimeEvolution(matblock(H_2), dt)))
+#        end
+#        push!(circuit, put(nq, 2 => TimeEvolution(matblock(Omega_1 * X), dt)))
+#        push!(circuit, put(nq, 3 => TimeEvolution(matblock(Omega_4 * X), dt)))
     #end
-    return circuit
-end
+#    return circuit
+#end
+
+
 #定义Yao.jl分层应用在初始态上的函数
 function get_final(t::Float64, nq::Int, nlayers::Int, Omega_1::Float64, Omega_4::Float64, amplitude::Float64, omega::Float64, phase::Float64, topology::Vector{Tuple{Int,Int}},state::ArrayReg)
     dt = t/nlayers
-    for time_t in 0:dt:t-dt
+    finalstate = zero_state(nq)
+    for i in 1:nlayers
+        time_t = i*dt
         J_1 = floquet_drive(time_t, amplitude, omega, phase)
-        J_2 = floquet_drive(time_t, amplitude, 1*omega, phase)
-        coupling_strength = [J_1 ,J_2 ,J_2]
-        circuit_blocks = circuitwithyao(time_t, nq, nlayers, Omega_1, Omega_4, coupling_strength, topology)
+        J_2 = floquet_drive(time_t, amplitude, 2*omega, phase)
+        coupling_strength = [J_1 ,J_2, J_2]
+        circuit_blocks = circuitwithyao(dt, nq, Omega_1, Omega_4, coupling_strength, topology)
         circuit = chain(circuit_blocks...)
         finalstate = apply!(state, circuit)
-        state = finalstate
     end
-    return state
+    return finalstate
 end
 """
 function initial_state(nq::Int)

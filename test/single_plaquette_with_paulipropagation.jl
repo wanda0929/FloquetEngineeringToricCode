@@ -1,4 +1,4 @@
-using Main.FloquetEngineeringToricCode
+using FloquetEngineeringToricCode
 using PauliPropagation
 #定义x，y方向的spin数量及拓扑结构
 nx = 2      
@@ -6,7 +6,7 @@ ny = 2
 nq = nx * ny
 #function paulical(nq::Int)
 #trotterization去逼近含时的调制波形，定义电路layers
-step = 100
+step = 1000
 nlayers = step
 #定义拓扑结构
 topology = periodic_square_lattice(nx, ny)
@@ -27,6 +27,7 @@ Omega_4 = 1.0
 my_drive = [floquet_drive(cur_t,amplitude,omega,phase) for cur_t in 0:dt:total_time-dt] 
 my_drive_2 = [floquet_drive(cur_t,amplitude,1*omega,phase) for cur_t in 0:dt:total_time-dt]
 my_drive = vcat([[my_drive[idx],my_drive[idx],my_drive_2[idx],my_drive_2[idx],my_drive_2[idx],my_drive_2[idx],Omega_1,Omega_4] for (idx, i) in enumerate(my_drive)]...)
+my_drive = dt * my_drive
 # my_drive = floquet_drive.(0:dt:total_time-dt,Ref(amplitude),Ref(omega),Ref(phase))
 #定义observable
 observable = PauliString(nq, :Z, 2)
@@ -35,7 +36,6 @@ pauli_sum = propagate(circuit,observable,my_drive)
 final = overlapwithzero(pauli_sum)
 #return final
 #end
-final
 
 
 
