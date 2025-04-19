@@ -27,7 +27,29 @@ function pulse_hamiltonian(ω, Ω₁, Ω₄, g13, g23, g24)
         g24 * cos(2ω * t) * put(4, (2,4)=>xy)
     return h
 end
+function h1(ω, Ω₁, Ω₄, g13, g23, g24)
+    xy = kron(X, X) + kron(Y, Y)    
+    h(t) = g13 * cos(ω * t) * put(4, (1,3)=>xy)
+    return h
+end
 
+function h2(ω, Ω₁, Ω₄, g13, g23, g24)
+    xy = kron(X, X) + kron(Y, Y)    
+    h(t) = 
+        g23 * cos(2ω * t) * put(4, (2,3)=>xy) 
+    return h
+end
+function h3(ω, Ω₁, Ω₄, g13, g23, g24)
+    xy = kron(X, X) + kron(Y, Y)    
+    h(t) = 
+    g24 * cos(2ω * t) * put(4, (2,4)=>xy)
+    return h
+end
+function hh(ω, Ω₁, Ω₄, g13, g23, g24)
+    xy = kron(X, X) + kron(Y, Y)    
+    h(t) = Ω₁ * put(4, 1=>X) + Ω₄ * put(4, 4=>X) 
+    return h
+end
 function pulse_h(ω, Ω₁, Ω₄, g13, g23, g24)
     xy = kron(X, X) + kron(Y, Y)    
     h(t) = Ω₁ * put(4, 1=>X) + Ω₄ * put(4, 4=>X) +
@@ -65,7 +87,7 @@ function pulse_hamiltonian_interaction_1(ω, g13, g23, g24)
     return h
 end
 
-function evolve(reg, hamiltonian, t, J, Nt=10000)
+function evolve(reg, hamiltonian, t, J, Nt=100000)
     reg1 = copy(reg)
     reg2 = copy(reg)
     dt = t / Nt
@@ -86,6 +108,57 @@ function evolve(reg, hamiltonian, t, J, Nt=10000)
     return reg1, res1, reg2, res2, evolution_operator
 end
 
+function operator_evolve1(t::Float64, ω::Float64, Ω₁::Float64, Ω₄::Float64, g13::Float64, g23::Float64, g24::Float64, Nt::Int=10000)
+    dt = t / Nt
+    h_1 = h1(ω, Ω₁, Ω₄, g13, g23, g24)
+    h_2 = h2(ω, Ω₁, Ω₄, g13, g23, g24)
+    h_3 = h3(ω, Ω₁, Ω₄, g13, g23, g24)
+    h_h = hh(ω, Ω₁, Ω₄, g13, g23, g24)
+    evolution_operator_k = Matrix(I, 16, 16)  # 初始化为单位矩阵 
+    evolution_operator = Matrix(I, 16, 16)  # 初始化为单位矩阵 
+    s1 = 1/(4-4^(1/3))
+    s2 = (1-4^(1/3))/(4-4^(1/3))
+    s3 = 1-2*(s1+s2)
+    s4 = s2
+    s5 = s1
+    s = [s1, s2, s3, s4, s5]
+    tt = zeros(5)
+    for it = 0:Nt-1
+        for k = 1:5
+            tt[k] = it*dt + s[k]*dt
+            evolution_operator_1 = mat(time_evolve(h_1(tt[k]), s[k]*dt/2)) 
+            evolution_operator_2 = mat(time_evolve(h_2(tt[k]), s[k]*dt/2))
+            evolution_operator_3 = mat(time_evolve(h_3(tt[k]), s[k]*dt))
+            evolution_operator_4 = mat(time_evolve(h_h(tt[k]), s[k]*dt/2))
+
+            evolution_operator_k = (evolution_operator_4 * evolution_operator_1 * evolution_operator_2 * evolution_operator_3 * evolution_operator_2 * evolution_operator_1 * evolution_operator_4) * evolution_operator_k
+        end
+        evolution_operator = evolution_operator_k * evolution_operator
+    end
+    return evolution_operator 
+end
+
+function operator_evolve(t::Float64, ω::Float64, Ω₁::Float64, Ω₄::Float64, g13::Float64, g23::Float64, g24::Float64, Nt::Int=10000)
+    dt = t / Nt
+    reg1 = zero_state(4)
+    #res1 = Vector{Float64}[]
+    h_1 = h1(ω, Ω₁, Ω₄, g13, g23, g24)
+    h_2 = h2(ω, Ω₁, Ω₄, g13, g23, g24)
+    h_3 = h3(ω, Ω₁, Ω₄, g13, g23, g24)
+    h_h = hh(ω, Ω₁, Ω₄, g13, g23, g24)
+    evolution_operator = Matrix(I, 16, 16)  # 初始化为单位矩阵 
+    for it = 1:Nt
+        evolution_operator_1 = mat(time_evolve(h_1((it-0.5) * dt), dt/2)) 
+        evolution_operator_2 = mat(time_evolve(h_2((it-0.5) * dt), dt/2))
+        evolution_operator_3 = mat(time_evolve(h_3((it-0.5) * dt), dt))
+        evolution_operator_4 = mat(time_evolve(h_h((it-0.5) * dt), dt/2))
+        evolution_operator = (evolution_operator_4 * evolution_operator_1 * evolution_operator_2 * evolution_operator_3 * evolution_operator_2 * evolution_operator_1 * evolution_operator_4) * evolution_operator
+
+
+    end
+    final_state = evolution_operator * statevec(reg1)
+    return evolution_operator, final_state
+end
 function XZZX_operator(t, J, Nt=10000)
     hh = -J * (put(4, (1,2,3,4)=>kron(X,Z,Z,X)))
     evolution_operator = Matrix(I, 16, 16)  # 初始化为单位矩阵 
@@ -96,34 +169,10 @@ function XZZX_operator(t, J, Nt=10000)
     return evolution_operator
 end
 
-function operator_evolve(hamiltonian, t, Nt=10000)
-    evolution_operator = Matrix(I, 16, 16)  # 初始化为单位矩阵 
-    dt = t / Nt
-    
-    for it = 1:Nt
-        # 计算时间点
-        t1 = (it-1) * dt
-        t2 = (it-0.5) * dt
-        t3 = it * dt
-        
-        h1 = hamiltonian(t1)
-        h2 = hamiltonian(t2)
-        h3 = hamiltonian(t3)
-        
-        # 使用二阶 Trotter 分解
-        U1 = mat(time_evolve(h1, dt/4))
-        U2 = mat(time_evolve(h2, dt/2))
-        U3 = mat(time_evolve(h3, dt/4))
-        
-        evolution_operator = U3 * U2 * U1 * evolution_operator
-    end
-    return evolution_operator
-end
 
 
-function sim1(; interaction=true)
+function sim1(ω; interaction=true)
     reg = zero_state(4)
-    ω = 1  # τ = 1
     τ = 2π/ω
     if interaction
         hamiltonian8 = pulse_hamiltonian_interaction(ω, 12.0ω , 10.0ω , 1.3ω , 2.6ω , 0.35ω)
@@ -134,9 +183,8 @@ function sim1(; interaction=true)
     return reg1, reg2, res1, res2, evolution_operator
 end
 
-function sim2(; interaction=false)
+function sim2(ω; interaction=false)
     reg = zero_state(4)
-    ω = 1  # τ = 1
     τ = 2π/ω
     if interaction
         hamiltonian50 = pulse_hamiltonian_interaction(ω, 14.0ω, 11.0ω, 1.2ω, 2.6ω, 0.054ω)
@@ -150,6 +198,8 @@ end
  
 # 绘制 Pauli 矩阵迹的极坐标图
 function plot_pauli_traces(evo; title="Components of the effective Hamiltonian")
+    omega = 1
+    tau = 2π/omega
 
     # 定义 Pauli 矩阵
     XZZX = put(4, (1,2,3,4)=>kron(X,Z,Z,X))
@@ -168,20 +218,21 @@ function plot_pauli_traces(evo; title="Components of the effective Hamiltonian")
 
     # 计算迹
     traces = [
-        tr(evo * mat(XZZX))/16,
+        tr(evo * (mat(XZZX)))/(16*tau),
         #tr(evo * mat(YZZY))/16,
-        tr(evo * mat(IXIX))/16,
-        tr(evo * mat(IYIY))/16,
-        tr(evo * mat(IZXZ))/16,
-        tr(evo * mat(ZZZZ))/16,
-        tr(evo * mat(XIXI))/16,
-        tr(evo * mat(YIYI))/16,
-        tr(evo * mat(IXXI))/16,
-        tr(evo * mat(IYYI))/16,
-        tr(evo * mat(ZXZI))/16,
-        tr(evo * mat(XIII))/16,
-        tr(evo * mat(IIIX))/16
+        tr(evo * (mat(IXIX)))/(16*tau),
+        tr(evo * (mat(IYIY)))/(16*tau),
+        tr(evo * (mat(IZXZ)))/(16*tau),
+        tr(evo * (mat(ZZZZ)))/(16*tau),
+        tr(evo * (mat(XIXI)))/(16*tau),
+        tr(evo * (mat(YIYI)))/(16*tau),
+        tr(evo * (mat(IXXI)))/(16*tau),
+        tr(evo * (mat(IYYI)))/(16*tau),
+        tr(evo * (mat(ZXZI)))/(16*tau),
+        tr(evo * (mat(XIII)))/(16*tau),
+        tr(evo * (mat(IIIX)))/(16*tau)
     ]
+    @show traces/omega
 
     # Pauli 矩阵标签
     labels = ["XZZX", "IXIX", "IYIY", "IZXZ", "ZZZZ", "XIXI", 
@@ -195,7 +246,7 @@ function plot_pauli_traces(evo; title="Components of the effective Hamiltonian")
     )
     angles = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]  
     theta = deg2rad.(angles)
-    r = log10.(abs.(traces))
+    r = log10.(abs.(real.(traces)/omega))
     
     # 绘制散点图
     scatter = scatter!(ax, theta, r, 
