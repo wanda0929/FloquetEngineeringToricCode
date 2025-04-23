@@ -6,21 +6,21 @@ using CairoMakie
 using LinearAlgebra
 import LinearAlgebra: norm
 
-function pulse_hamiltonian00(ω, g13, g23, g24, Ω₁=0, Ω₄=0)
+function pulse_hamiltonian0(ω, Ω₁, Ω₄, g13, g23, g24)
     xy = kron(X, X) + kron(Y, Y)
     h(t) = Ω₁ * put(4, 1=>X) + Ω₄ * put(4, 4=>X) +
         g13 * cos(ω * t) * put(4, (1,3)=>xy) +
-        g23 * cos(3ω * t) * put(4, (2,3)=>xy) +
+        g23 * cos(2ω * t) * put(4, (2,3)=>xy) +
         g24 * cos(2ω * t) * put(4, (2,4)=>xy)
     return h
 end
-function pulse_hamiltonian_seperated0(ω, params)
+function pulse_hamiltonian_seperated(ω, params,param_optimized)
     xy = kron(X, X) + kron(Y, Y)
-    Ω₁ = 0
-    Ω₄ = 0
-    coeff1(t) = params[1] * cos(1 * ω * t)
-    coeff2(t) = params[2] * cos(2 * ω * t)
-    coeff3(t) = params[3] * cos(2 * ω * t)
+    Ω₁ = params[1]
+    Ω₄ = params[2]
+    coeff1(t) = (param_optimized[1] + 0.01 * params[3]) * cos(1 * ω * t)
+    coeff2(t) = (param_optimized[2] + 0.01 * params[4]) * cos(2 * ω * t)
+    coeff3(t) = (param_optimized[3] + 0.01 * params[5]) * cos(2 * ω * t)
 
     # 预计算基础矩阵
     base_ham1 = mat(Ω₁ * put(4, 1=>X) + Ω₄ * put(4, 4=>X))
@@ -36,9 +36,9 @@ function pulse_hamiltonian_seperated0(ω, params)
     return ham1, ham2, ham3, ham4
 end
 
-function operator_evolve0(t, ω, params, Nt=10000)
+function operator_evolve(t, ω, params, param_optimized, Nt=10000)
     dt = t / Nt
-    ham1, ham2, ham3, ham4 = pulse_hamiltonian_seperated0(ω, params)
+    ham1, ham2, ham3, ham4 = pulse_hamiltonian_seperated(ω, params,param_optimized)
     evolution_operator = Matrix{ComplexF64}(I, 16, 16)  # 初始化为单位矩阵 
     for it = 1:Nt
         t_current = (it-0.5) * dt
@@ -57,62 +57,62 @@ function XZZX_operator(t, J)
     return evolution_operator
 end
 
-function diff_evolution_operator0(t, ω, params, J, Nt=10000)
-    op_1 = operator_evolve0(t, ω, params, Nt)
+function diff_evolution_operator(t, ω, params, param_optimized, J, Nt=10000)
+    op_1 = operator_evolve(t, ω, params, param_optimized, Nt)
     op_2 = XZZX_operator(t, J)
     norm_op = norm(op_1 - op_2)
     return norm_op
 end
 
-function gradient0(t, ω, params, J, Nt=10000, ε=1e-3)
+function gradient(t, ω, params, param_optimized, J, Nt=10000, ε=1e-3)
     grad = zeros(length(params))
-    diff_0 = diff_evolution_operator0(t, ω, params, J, Nt)
+    diff_0 = diff_evolution_operator(t, ω, params, param_optimized, J, Nt)
     for i in 1:length(params)
         params_new = copy(params)
         params_new[i] += ε
-        diff_1 = diff_evolution_operator0(t, ω, params_new, J, Nt)
+        diff_1 = diff_evolution_operator(t, ω, params_new, param_optimized, J, Nt)
         grad[i] = (diff_1 - diff_0) / ε
     end
     return grad
 end
 
 # 参数变换函数
-function transform_params0(log_params)
+function transform_params(log_params)
     return exp.(log_params)  # 将参数从对数空间转换回原始空间
 end
 
-function inverse_transform_params0(params)
+function inverse_transform_params(params)
     return log.(params)  # 将参数转换到对数空间
 end
 
-function optimize_process0(t, ω, J, initial_params, Nt=10000, ε=1e-3)
-   #if any(x -> x < 0, initial_params)
-    #    error("All initial parameters must be positive")
-    #end
-    #log_params = inverse_transform_params0(initial_params)
-    #println("Initial log parameters: ", log_params)
-    optimizer = Optimisers.setup(Optimisers.ADAM(0.01), initial_params)
-    niter = 50
+function optimize_process(t, ω, J, initial_params, param_optimized, Nt=10000, ε=1e-3)
+    if any(x -> x < 0, initial_params)
+        error("All initial parameters must be positive")
+    end
+    log_params = inverse_transform_params(initial_params)
+    println("Initial log parameters: ", log_params)
+    optimizer = Optimisers.setup(Optimisers.ADAM(0.01), log_params)
+    niter = 100
 
     best_loss = Inf
     best_params = nothing
 
     for i = 1:niter
         # 计算梯度
-#        current_params = transform_params0(log_params)
-        grad_log_params = gradient0(t, ω, initial_params, J, Nt, ε)
+        current_params = transform_params(log_params)
+        grad_log_params = gradient(t, ω, current_params, param_optimized, J, Nt, ε)
         
         # 更新参数
-        optimizer, initial_params = Optimisers.update(optimizer, initial_params, grad_log_params)
+        optimizer, log_params = Optimisers.update(optimizer, log_params, grad_log_params)
         
         # 计算当前loss
-        #current_params = transform_params0(initial_params)          
-        current_loss = diff_evolution_operator0(t, ω, initial_params, J, Nt)
+        current_params = transform_params(log_params)
+        current_loss = diff_evolution_operator(t, ω, current_params, param_optimized, J, Nt)
         
         # 更新最佳结果
         if current_loss < best_loss
             best_loss = current_loss
-            best_params = copy(initial_params)
+            best_params = copy(current_params)
         end
 
     println("Best loss achieved: $best_loss")
@@ -121,12 +121,12 @@ function optimize_process0(t, ω, J, initial_params, Nt=10000, ε=1e-3)
     return best_params, best_loss
 end
 
-function optimize_with_multistarts0(t, ω, J, n_starts=5)
+function optimize_with_multistarts(t, ω, J, param_optimized, n_starts=10)
     best_loss = Inf
     best_optimized = nothing
     for i = 1:n_starts
-        initial_params = randn(3)
-        optimized, loss = optimize_process0(t, ω, J, initial_params)
+        initial_params = 15*rand(5)
+        optimized, loss = optimize_process(t, ω, J, initial_params, param_optimized)
         if loss < best_loss
             best_loss = loss
             best_optimized = optimized

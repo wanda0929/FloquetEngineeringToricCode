@@ -18,7 +18,8 @@ include("topology.jl")
 include("circuit.jl")
 include("utils.jl")
 include("Yaopulse.jl")
-include("optimizer.jl")
+include("/Users/aoao/.julia/dev/FloquetEngineeringToricCode/src/optimizer.jl")
+include("optimizer2.jl")
 
 export periodic_square_lattice
 export floquet_drive
@@ -54,4 +55,15 @@ export diff_evolution_operator
 export gradient
 export optimize_process
 export pulse_hamiltonian0
+export optimize_process0
+export pulse_hamiltonian00
+export pulse_hamiltonian_seperated0
+export operator_evolve0
+export diff_evolution_operator0
+export gradient0
+export transform_params0
+export inverse_transform_params0
+export optimize_with_multistarts0
+export optimize_with_multistarts
+
 end
