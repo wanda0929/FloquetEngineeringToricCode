@@ -63,16 +63,37 @@ function diff_evolution_operator(t, ω, params, param_optimized, J, Nt=10000)
     norm_op = norm(op_1 - op_2)
     return norm_op
 end
-
 function gradient(t, ω, params, param_optimized, J, Nt=10000, ε=1e-3)
     grad = zeros(length(params))
-    diff_0 = diff_evolution_operator(t, ω, params, param_optimized, J, Nt)
+    # 使用中心差分法计算梯度
     for i in 1:length(params)
-        params_new = copy(params)
-        params_new[i] += ε
-        diff_1 = diff_evolution_operator(t, ω, params_new, param_optimized, J, Nt)
-        grad[i] = (diff_1 - diff_0) / ε
+        # 计算正向扰动
+        params_plus = copy(params)
+        params_plus[i] += ε
+        diff_plus = diff_evolution_operator(t, ω, params_plus, param_optimized, J, Nt)
+        
+        # 计算负向扰动
+        params_minus = copy(params)
+        params_minus[i] -= ε
+        diff_minus = diff_evolution_operator(t, ω, params_minus, param_optimized, J, Nt)
+        
+        # 中心差分公式：(f(x+ε) - f(x-ε)) / (2ε)
+        grad[i] = (diff_plus - diff_minus) / (2ε)
+        
+        # 数值稳定性检查
+        if abs(grad[i]) > 1e10
+            println("Warning: Large gradient detected for parameter $i: $(grad[i])")
+            println("Current params: $params")
+            println("Diff plus: $diff_plus, Diff minus: $diff_minus")
+        end
     end
+    
+    # 梯度归一化，防止梯度爆炸
+    grad_norm = norm(grad)
+    if grad_norm > 1.0
+        grad ./= grad_norm
+    end
+    
     return grad
 end
 
@@ -86,12 +107,12 @@ function inverse_transform_params(params)
 end
 
 function optimize_process(t, ω, J, initial_params, param_optimized, Nt=10000, ε=1e-3)
-    if any(x -> x < 0, initial_params)
-        error("All initial parameters must be positive")
-    end
-    log_params = inverse_transform_params(initial_params)
-    println("Initial log parameters: ", log_params)
-    optimizer = Optimisers.setup(Optimisers.ADAM(0.01), log_params)
+    #if any(x -> x < 0, initial_params)
+    #    error("All initial parameters must be positive")
+    #end
+    #log_params = inverse_transform_params(initial_params)
+    #println("Initial log parameters: ", log_params)
+    optimizer = Optimisers.setup(Optimisers.ADAM(0.01), initial_params)
     niter = 100
 
     best_loss = Inf
@@ -99,20 +120,20 @@ function optimize_process(t, ω, J, initial_params, param_optimized, Nt=10000, �
 
     for i = 1:niter
         # 计算梯度
-        current_params = transform_params(log_params)
-        grad_log_params = gradient(t, ω, current_params, param_optimized, J, Nt, ε)
+        #current_params = transform_params(initial_params)
+        grad_log_params = gradient(t, ω, initial_params, param_optimized, J, Nt, ε)
         
         # 更新参数
-        optimizer, log_params = Optimisers.update(optimizer, log_params, grad_log_params)
+        optimizer, initial_params = Optimisers.update(optimizer, initial_params, grad_log_params)
         
         # 计算当前loss
-        current_params = transform_params(log_params)
-        current_loss = diff_evolution_operator(t, ω, current_params, param_optimized, J, Nt)
+        #current_params = transform_params(initial_params)
+        current_loss = diff_evolution_operator(t, ω, initial_params, param_optimized, J, Nt)
         
         # 更新最佳结果
         if current_loss < best_loss
             best_loss = current_loss
-            best_params = copy(current_params)
+            best_params = copy(initial_params)
         end
 
     println("Best loss achieved: $best_loss")

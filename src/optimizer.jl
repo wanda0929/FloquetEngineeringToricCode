@@ -66,13 +66,35 @@ end
 
 function gradient0(t, ω, params, J, Nt=10000, ε=1e-3)
     grad = zeros(length(params))
-    diff_0 = diff_evolution_operator0(t, ω, params, J, Nt)
+    # 使用中心差分法计算梯度
     for i in 1:length(params)
-        params_new = copy(params)
-        params_new[i] += ε
-        diff_1 = diff_evolution_operator0(t, ω, params_new, J, Nt)
-        grad[i] = (diff_1 - diff_0) / ε
+        # 计算正向扰动
+        params_plus = copy(params)
+        params_plus[i] += ε
+        diff_plus = diff_evolution_operator0(t, ω, params_plus, J, Nt)
+        
+        # 计算负向扰动
+        params_minus = copy(params)
+        params_minus[i] -= ε
+        diff_minus = diff_evolution_operator0(t, ω, params_minus, J, Nt)
+        
+        # 中心差分公式：(f(x+ε) - f(x-ε)) / (2ε)
+        grad[i] = (diff_plus - diff_minus) / (2ε)
+        
+        # 数值稳定性检查
+        if abs(grad[i]) > 1e10
+            println("Warning: Large gradient detected for parameter $i: $(grad[i])")
+            println("Current params: $params")
+            println("Diff plus: $diff_plus, Diff minus: $diff_minus")
+        end
     end
+    
+    # 梯度归一化，防止梯度爆炸
+    grad_norm = norm(grad)
+    if grad_norm > 1.0
+        grad ./= grad_norm
+    end
+    
     return grad
 end
 

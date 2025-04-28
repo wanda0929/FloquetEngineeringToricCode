@@ -16,7 +16,7 @@ J = 8/(pi*2*pi/ω)
 optimized = optimize_with_multistarts0(t, ω, J)
 
 params = 10*rand(5)
-optimizedparams = [2.649994597208409, 1.5397548366856941, 0.2493044339493439]
+optimizedparams = [-0.9334819667898443, -1.1777334305857767, -0.02868486747271791]
 op2 = optimize_with_multistarts(t, ω, J, optimizedparams)
 
 
